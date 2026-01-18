@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Ink Focus Timer</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ink-black: #1a1a1a;
+            --e-paper-bg: #dcdcdc; /* 稍微带点灰的纸张色 */
+            --screen-bg: #cbb;     /* 稍微不同的屏幕底色 */
+            --shadow-offset: 4px;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none; /* 防止长按选中文本，更像APP */
+        }
+
+        body {
+            background-color: var(--e-paper-bg);
+            color: var(--ink-black);
+            font-family: 'VT323', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            /* 添加噪点纹理模拟墨水屏质感 */
+            background-image: radial-gradient(#b0b0b0 10%, transparent 10%);
+            background-position: 0 0;
+            background-size: 4px 4px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* 通用像素边框风格 */
+        .pixel-box {
+            background: #f0f0f0;
+            border: 3px solid var(--ink-black);
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0px var(--ink-black);
+            padding: 20px;
+            position: relative;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            text-align: center;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-bottom: 2px dashed var(--ink-black);
+            padding-bottom: 10px;
+        }
+
+        /* 计时器区域 */
+        .timer-display {
+            font-size: 5rem;
+            text-align: center;
+            background: #d0d3d4; /* 液晶屏底色 */
+            border: 2px inset var(--ink-black);
+            margin-bottom: 20px;
+            font-family: 'VT323', monospace;
+            line-height: 1;
+            padding: 10px 0;
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .time-input-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            background: transparent;
+            border: 2px solid var(--ink-black);
+            font-family: 'VT323';
+            font-size: 1.2rem;
+            padding: 5px;
+            text-align: center;
+            outline: none;
+        }
+
+        /* 按钮风格 */
+        button {
+            background: white;
+            border: 2px solid var(--ink-black);
+            font-family: 'VT323', monospace;
+            font-size: 1.2rem;
+            padding: 5px 15px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px var(--ink-black);
+            transition: transform 0.1s, box-shadow 0.1s;
+            text-transform: uppercase;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 0px 0px 0px var(--ink-black);
+        }
+
+        button.primary {
+            background: var(--ink-black);
+            color: white;
+        }
+
+        /* 待办事项区域 */
+        .todo-input {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .todo-input input {
+            flex-grow: 1;
+            border: 2px solid var(--ink-black);
+            font-family: 'VT323';
+            font-size: 1.2rem;
+            padding: 5px;
+            outline: none;
+            background: white;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px dotted #999;
+            font-size: 1.3rem;
+        }
+
+        li.completed span {
+            text-decoration: line-through;
+            color: #777;
+        }
+
+        .checkbox {
+            cursor: pointer;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .delete-btn {
+            background: transparent;
+            border: none;
+            color: var(--ink-black);
+            font-weight: bold;
+            box-shadow: none;
+            padding: 0 5px;
+        }
+        
+        .delete-btn:hover {
+            color: red; /* 即使是墨水屏，提示危险也稍微用点色，或者保持黑色 */
+        }
+
+        /* 提醒时的动画 */
+        @keyframes flash {
+            0% { background-color: #f0f0f0; color: black; }
+            50% { background-color: black; color: white; }
+            100% { background-color: #f0f0f0; color: black; }
+        }
+
+        .times-up {
+            animation: flash 0.5s infinite;
+        }
+
+        /* 滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-left: 1px solid black;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #000; 
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="pixel-box" id="timerBox">
+        <h1>FOCUS TIMER</h1>
+        
+        <div class="time-input-group">
+            <span>SET MIN:</span>
+            <input type="number" id="inputMin" value="25" min="1" max="120">
+        </div>
+
+        <div class="timer-display" id="display">25:00</div>
+
+        <div class="timer-controls">
+            <button class="primary" onclick="startTimer()" id="startBtn">START</button>
+            <button onclick="pauseTimer()" id="pauseBtn">PAUSE</button>
+            <button onclick="resetTimer()">RESET</button>
+        </div>
+    </div>
+
+    <div class="pixel-box">
+        <h1>TASKS</h1>
+        <div class="todo-input">
+            <input type="text" id="todoInput" placeholder="New Task..." onkeypress="handleEnter(event)">
+            <button onclick="addTodo()">ADD</button>
+        </div>
+        <ul id="todoList">
+            </ul>
+    </div>
+</div>
+
+<script>
+    // --- 计时器逻辑 ---
+    let timer;
+    let timeLeft;
+    let isRunning = false;
+    let originalTime = 25 * 60;
+
+    const display = document.getElementById('display');
+    const inputMin = document.getElementById('inputMin');
+    const startBtn = document.getElementById('startBtn');
+    const timerBox = document.getElementById('timerBox');
+
+    // 音频上下文，用于生成蜂鸣声
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function beep() {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscillator.type = 'square'; // 方波声音更有复古电子感
+        oscillator.frequency.value = 800; // 频率
+        
+        // 声音包络
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function updateDisplay(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        display.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        document.title = `(${m}:${s.toString().padStart(2, '0')}) Focus Timer`;
+    }
+
+    function startTimer() {
+        if (isRunning) return;
+
+        // 如果是重置状态，从输入框读取时间
+        if (timeLeft === undefined || timeLeft === 0) {
+             timeLeft = inputMin.value * 60;
+        }
+
+        isRunning = true;
+        startBtn.textContent = "RUNNING...";
+        startBtn.disabled = true;
+        timerBox.classList.remove('times-up');
+
+        timer = setInterval(() => {
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                timerFinished();
+            } else {
+                timeLeft--;
+                updateDisplay(timeLeft);
+            }
+        }, 1000);
+    }
+
+    function pauseTimer() {
+        clearInterval(timer);
+        isRunning = false;
+        startBtn.textContent = "RESUME";
+        startBtn.disabled = false;
+    }
+
+    function resetTimer() {
+        clearInterval(timer);
+        isRunning = false;
+        timeLeft = inputMin.value * 60;
+        updateDisplay(timeLeft);
+        startBtn.textContent = "START";
+        startBtn.disabled = false;
+        timerBox.classList.remove('times-up');
+        document.title = "E-Ink Focus Timer";
+    }
+
+    function timerFinished() {
+        isRunning = false;
+        startBtn.textContent = "START";
+        startBtn.disabled = false;
+        updateDisplay(0);
+        
+        // 视觉提醒
+        timerBox.classList.add('times-up');
+        
+        // 声音提醒 (播放3次蜂鸣)
+        beep();
+        setTimeout(beep, 600);
+        setTimeout(beep, 1200);
+
+        // 弹窗提醒
+        setTimeout(() => {
+            alert("时间到！该休息了。");
+            timerBox.classList.remove('times-up');
+        }, 500);
+    }
+
+    // 监听输入框变化，如果未开始则同步更新显示
+    inputMin.addEventListener('change', () => {
+        if (!isRunning) {
+            timeLeft = inputMin.value * 60;
+            updateDisplay(timeLeft);
+        }
+    });
+
+    // --- 待办事项逻辑 ---
+    const todoInput = document.getElementById('todoInput');
+    const todoList = document.getElementById('todoList');
+    
+    // 从本地存储加载
+    let todos = JSON.parse(localStorage.getItem('inkTodos')) || [];
+
+    function saveTodos() {
+        localStorage.setItem('inkTodos', JSON.stringify(todos));
+        renderTodos();
+    }
+
+    function renderTodos() {
+        todoList.innerHTML = '';
+        todos.forEach((todo, index) => {
+            const li = document.createElement('li');
+            if (todo.completed) li.classList.add('completed');
+            
+            li.innerHTML = `
+                <div style="display:flex; align-items:center;">
+                    <span class="checkbox" onclick="toggleTodo(${index})">
+                        [${todo.completed ? 'x' : '&nbsp;'}]
+                    </span>
+                    <span onclick="toggleTodo(${index})">${todo.text}</span>
+                </div>
+                <button class="delete-btn" onclick="deleteTodo(${index})">[DEL]</button>
+            `;
+            todoList.appendChild(li);
+        });
+    }
+
+    function addTodo() {
+        const text = todoInput.value.trim();
+        if (text) {
+            todos.push({ text: text, completed: false });
+            todoInput.value = '';
+            saveTodos();
+        }
+    }
+
+    function toggleTodo(index) {
+        todos[index].completed = !todos[index].completed;
+        saveTodos();
+    }
+
+    function deleteTodo(index) {
+        todos.splice(index, 1);
+        saveTodos();
+    }
+
+    function handleEnter(e) {
+        if (e.key === 'Enter') addTodo();
+    }
+
+    // 初始化
+    renderTodos();
+</script>
+
+</body>
+</html>
