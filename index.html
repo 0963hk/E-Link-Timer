@@ -49,7 +49,7 @@
             color: var(--ink-color);
             font-family: 'VT323', monospace;
             display: flex;
-            justify-content: center;
+            justify-content: center; /* 核心：让主容器水平居中 */
             align-items: center;
             min-height: 100vh;
             margin: 0;
@@ -66,8 +66,8 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            z-index: 100;
-            max-height: 90vh; /* 防止过长溢出 */
+            z-index: 200; /* 确保悬浮在最上层 */
+            max-height: 90vh;
         }
 
         .widget-box {
@@ -89,28 +89,19 @@
         }
 
         /* 日志列表样式 */
-        #log-list {
-            max-height: 250px;
-            overflow-y: auto;
-            font-size: 0.95rem;
-        }
+        #log-list { max-height: 250px; overflow-y: auto; font-size: 0.95rem; }
         .log-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 1px dotted var(--border-color);
-            padding: 3px 0;
-            flex-wrap: wrap;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            border-bottom: 1px dotted var(--border-color); padding: 3px 0; flex-wrap: wrap;
         }
         .log-info { width: 100%; display: flex; justify-content: space-between; }
         .log-actions { width: 100%; text-align: right; margin-top: 2px; opacity: 0.6; font-size: 0.8rem; }
         .log-actions span { cursor: pointer; margin-left: 8px; text-decoration: underline; }
         .log-actions span:hover { opacity: 1; font-weight: bold; }
 
-        /* 天气组件微调 */
         #weather-widget { cursor: pointer; }
 
-        /* 主容器 */
+        /* 主容器 (已修正居中逻辑) */
         .container {
             width: 90%;
             max-width: 440px;
@@ -119,11 +110,21 @@
             gap: 15px;
             padding-bottom: 20px;
             padding-top: 20px; 
-            margin-left: 180px; /* 给左侧组件留出空间，防止遮挡 */
+            /* 去掉了之前的 margin-left: 180px，配合 body 的 justify-content: center 实现绝对居中 */
+            margin: 0 auto; 
+            z-index: 100;
         }
-        @media (max-width: 768px) {
-            .container { margin-left: 0; padding-top: 120px; } /* 移动端适配 */
-            .left-widgets { flex-direction: row; flex-wrap: wrap; }
+
+        /* 响应式：当屏幕宽度小于 850px 时（防止中间内容和左侧组件重叠） */
+        @media (max-width: 850px) {
+            .container { 
+                padding-top: 140px; /* 给顶部留出空间放组件 */
+            }
+            .left-widgets {
+                flex-direction: row; /* 组件变横排 */
+                flex-wrap: wrap;
+                width: 95%; /* 宽度撑开 */
+            }
         }
 
         /* 像素框通用样式 */
@@ -136,96 +137,43 @@
         }
 
         /* 顶部工具栏 */
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
-        }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .text-btn {
-            background: transparent;
-            border: none;
-            color: var(--ink-color);
-            font-family: 'VT323';
-            font-size: 1.1rem;
-            cursor: pointer;
-            text-transform: uppercase;
-            padding: 0 5px;
+            background: transparent; border: none; color: var(--ink-color);
+            font-family: 'VT323'; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; padding: 0 5px;
         }
         .text-btn:hover { text-decoration: underline; font-weight: bold; }
 
         /* 计时器显示区 */
         .timer-display {
-            font-size: 5.5rem;
-            text-align: center;
-            background: var(--screen-bg);
-            border: 2px inset var(--border-color);
-            margin: 10px 0;
-            line-height: 0.9;
-            padding: 10px 0;
-            cursor: pointer;
+            font-size: 5.5rem; text-align: center; background: var(--screen-bg);
+            border: 2px inset var(--border-color); margin: 10px 0; line-height: 0.9; padding: 10px 0; cursor: pointer;
         }
 
         /* 输入控件 */
-        .task-input-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 5px;
-            font-size: 1.2rem;
-            flex-wrap: wrap;
-        }
+        .task-input-group { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 1.2rem; flex-wrap: wrap; }
         input[type="text"], input[type="number"], input[type="time"] {
-            background: transparent;
-            border: 2px solid var(--border-color);
-            color: var(--ink-color);
-            font-family: 'VT323';
-            font-size: 1.2rem;
-            padding: 4px;
-            outline: none;
+            background: transparent; border: 2px solid var(--border-color); color: var(--ink-color);
+            font-family: 'VT323'; font-size: 1.2rem; padding: 4px; outline: none;
         }
         #currentTask { flex-grow: 1; text-transform: uppercase; }
-        
-        .mode-switch {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            font-size: 1.1rem;
-            margin-left: 10px;
-        }
+        .mode-switch { display: flex; align-items: center; cursor: pointer; font-size: 1.1rem; margin-left: 10px; }
 
         /* 按钮组 */
         .controls { display: flex; justify-content: center; gap: 10px; }
         button.action-btn {
-            background: var(--bg-color);
-            border: 2px solid var(--border-color);
-            color: var(--ink-color);
-            font-family: 'VT323';
-            font-size: 1.3rem;
-            padding: 5px 20px;
-            cursor: pointer;
-            box-shadow: 2px 2px 0px rgba(0,0,0,0.2);
-            text-transform: uppercase;
+            background: var(--bg-color); border: 2px solid var(--border-color); color: var(--ink-color);
+            font-family: 'VT323'; font-size: 1.3rem; padding: 5px 20px; cursor: pointer;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.2); text-transform: uppercase;
         }
         button.action-btn:active { transform: translate(2px, 2px); box-shadow: none; }
         button.primary { background: var(--ink-color); color: var(--bg-color); }
         button.finish-btn { border-style: dashed; }
 
         /* 统计图表区域 */
-        .stats-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            background: var(--bg-color); 
-        }
+        .stats-container { display: flex; flex-direction: column; gap: 10px; background: var(--bg-color); }
         .chart-row { display: flex; align-items: center; gap: 20px; }
-        
-        #pieChartCanvas {
-            border: 2px solid var(--border-color);
-            border-radius: 50%;
-            background: var(--bg-color);
-        }
-
+        #pieChartCanvas { border: 2px solid var(--border-color); border-radius: 50%; background: var(--bg-color); }
         .legend { font-size: 1rem; max-height: 120px; overflow-y: auto; width: 100%; }
         .legend-item { display: flex; justify-content: space-between; margin-bottom: 2px; border-bottom: 1px dotted var(--border-color); }
 
@@ -237,25 +185,14 @@
         body.zen-active .pixel-box { border: none; box-shadow: none; background: transparent; }
 
         /* 反色模式 */
-        body.break-mode {
-            background-color: var(--invert-bg);
-            color: var(--invert-ink);
-            background-image: none;
-        }
+        body.break-mode { background-color: var(--invert-bg); color: var(--invert-ink); background-image: none; }
         body.break-mode .pixel-box, body.break-mode .timer-display, body.break-mode .widget-box {
-            background: var(--invert-bg);
-            border-color: var(--invert-ink);
-            color: var(--invert-ink);
+            background: var(--invert-bg); border-color: var(--invert-ink); color: var(--invert-ink);
         }
-        body.break-mode button {
-            border-color: var(--invert-ink);
-            color: var(--invert-ink);
-            background: var(--invert-bg);
-        }
-        
+        body.break-mode button { border-color: var(--invert-ink); color: var(--invert-ink); background: var(--invert-bg); }
         .disabled-input { opacity: 0.3; pointer-events: none; }
         
-        /* 滚动条美化 */
+        /* 滚动条 */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-color); }
         ::-webkit-scrollbar-thumb { background: var(--ink-color); }
@@ -387,7 +324,6 @@
     els.dateDisplay.textContent = new Date().toLocaleDateString();
 
     /* --- 1. 左侧组件逻辑 --- */
-    // 天气
     function fetchWeather() {
         els.weatherDisplay.textContent = "LOCATING...";
         if (!navigator.geolocation) { els.weatherDisplay.textContent = "NO GPS"; return; }
@@ -404,7 +340,6 @@
     }
     setTimeout(fetchWeather, 1000);
 
-    // 下班倒计时
     function updateDayLeft() {
         const now = new Date();
         const [th, tm] = els.endOfDayInput.value.split(':').map(Number);
@@ -430,13 +365,12 @@
     setInterval(updateDayLeft, 1000);
     function saveSettings() { localStorage.setItem('inkEndTime', els.endOfDayInput.value); updateDayLeft(); }
 
-    /* --- 2. 活动记录组件 (Log Widget) --- */
+    /* --- 2. 活动记录组件 --- */
     function renderLogWidget() {
         const today = new Date().toLocaleDateString();
-        // 获取今日数据，并附带原始索引以便修改
         const logs = activityLog.map((item, index) => ({...item, originalIndex: index}))
                                 .filter(item => item.date === today)
-                                .reverse(); // 新的在上面
+                                .reverse();
 
         if (logs.length === 0) {
             els.logList.innerHTML = '<div style="text-align:center; color:#888; padding-top:10px;">NO RECORDS TODAY</div>';
@@ -471,18 +405,14 @@
     function editLog(index) {
         const log = activityLog[index];
         const newName = prompt("Edit Task Name:", log.task);
-        if (newName === null) return; // Cancelled
+        if (newName === null) return;
         
         const newDurationStr = prompt("Edit Duration (minutes):", log.duration);
         if (newDurationStr === null) return;
         
         const newDuration = parseInt(newDurationStr);
-        if (isNaN(newDuration) || newDuration < 1) {
-            alert("Invalid duration.");
-            return;
-        }
+        if (isNaN(newDuration) || newDuration < 1) { alert("Invalid duration."); return; }
 
-        // Update
         activityLog[index].task = newName.trim() || "UNNAMED";
         activityLog[index].duration = newDuration;
         saveDataAndRender();
@@ -491,10 +421,10 @@
     function saveDataAndRender() {
         localStorage.setItem('inkActivityLog', JSON.stringify(activityLog));
         renderLogWidget();
-        renderStats(); // 联动更新饼状图
+        renderStats();
     }
 
-    /* --- 3. 截图分享逻辑 --- */
+    /* --- 3. 截图分享 --- */
     function shareStatsImage() {
         const target = els.statsBox;
         const originalBorder = target.style.border;
@@ -589,7 +519,7 @@
         if (!state.isCountUp) { state.timeLeft = els.workMin.value * 60; updateDisplay(state.timeLeft); }
         else { updateDisplay(0); }
 
-        saveDataAndRender(); // 保存并更新所有UI
+        saveDataAndRender(); 
     }
 
     function finishEarly() { finishTimer(false); }
@@ -691,8 +621,8 @@
     }
 
     /* --- 初始化 --- */
-    renderLogWidget(); // 渲染左侧日志
-    renderStats();     // 渲染右侧饼图
+    renderLogWidget();
+    renderStats();
     els.workMin.addEventListener('change', () => { if (!state.isRunning && !state.isCountUp) { state.timeLeft = els.workMin.value*60; updateDisplay(state.timeLeft); }});
 </script>
 </body>
