@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E_INK_Timer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>E_INK_Timer v8</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -42,7 +42,7 @@
         }
 
         /* --- 基础布局 --- */
-        * { box-sizing: border-box; user-select: none; }
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
         
         body {
             background-color: var(--bg-color);
@@ -56,9 +56,10 @@
             background-image: var(--pixel-pattern);
             background-size: 4px 4px;
             transition: all 0.3s ease;
+            overflow-x: hidden; /* 防止移动端横向滚动 */
         }
 
-        /* 左侧悬浮组件容器 */
+        /* --- 左侧悬浮组件容器 (可折叠设计) --- */
         .left-widgets {
             position: fixed;
             top: 10px;
@@ -66,8 +67,44 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            z-index: 200;
+            z-index: 500; /* 提高层级，但控制点击穿透 */
             max-height: 90vh;
+            width: 220px;
+            pointer-events: none; /* 容器本身不阻挡点击 */
+        }
+
+        /* 折叠开关按钮 */
+        #widget-toggle-btn {
+            pointer-events: auto;
+            align-self: flex-start;
+            background: var(--bg-color);
+            border: 2px solid var(--ink-color);
+            color: var(--ink-color);
+            font-family: 'VT323';
+            font-size: 1.2rem;
+            padding: 2px 8px;
+            cursor: pointer;
+            box-shadow: 2px 2px 0 var(--shadow);
+            margin-bottom: 5px;
+        }
+
+        /* 实际存放组件的容器 */
+        .widget-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: auto;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform-origin: top left;
+        }
+
+        /* 折叠状态 */
+        .widget-container.collapsed {
+            opacity: 0;
+            transform: scaleY(0);
+            height: 0;
+            overflow: hidden;
+            pointer-events: none;
         }
 
         .widget-box {
@@ -76,8 +113,6 @@
             padding: 5px 8px;
             font-size: 1.1rem;
             box-shadow: 2px 2px 0 var(--ink-color);
-            min-width: 170px; /* 稍微加宽以容纳时间设置 */
-            max-width: 210px;
         }
         
         .widget-title {
@@ -104,6 +139,8 @@
             width: 65px;
             border: 1px solid var(--border-color);
             padding: 0;
+            background: transparent;
+            color: var(--ink-color);
         }
 
         /* 日志列表样式 */
@@ -114,12 +151,12 @@
         }
         .log-info { width: 100%; display: flex; justify-content: space-between; }
         .log-actions { width: 100%; text-align: right; margin-top: 2px; opacity: 0.6; font-size: 0.8rem; }
-        .log-actions span { cursor: pointer; margin-left: 8px; text-decoration: underline; }
+        .log-actions span { cursor: pointer; margin-left: 8px; text-decoration: underline; padding: 5px; /* 增加点击区域 */ } 
         .log-actions span:hover { opacity: 1; font-weight: bold; }
 
         #weather-widget { cursor: pointer; }
 
-        /* 主容器 */
+        /* --- 主容器 --- */
         .container {
             width: 90%;
             max-width: 440px;
@@ -130,11 +167,19 @@
             padding-top: 20px; 
             margin: 0 auto; 
             z-index: 100;
+            position: relative;
         }
 
+        /* 移动端适配 */
         @media (max-width: 850px) {
-            .container { padding-top: 140px; }
-            .left-widgets { flex-direction: row; flex-wrap: wrap; width: 95%; }
+            .container { 
+                padding-top: 60px; /* 给顶部留一点空间 */
+            }
+            .left-widgets {
+                /* 移动端默认宽度不用太宽 */
+                width: auto;
+                max-width: 80%;
+            }
         }
 
         /* 像素框通用样式 */
@@ -150,7 +195,7 @@
         .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
         .text-btn {
             background: transparent; border: none; color: var(--ink-color);
-            font-family: 'VT323'; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; padding: 0 5px;
+            font-family: 'VT323'; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; padding: 5px; /* 增加点击区域 */
         }
         .text-btn:hover { text-decoration: underline; font-weight: bold; }
 
@@ -164,16 +209,17 @@
         .task-input-group { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 1.2rem; flex-wrap: wrap; }
         input[type="text"], input[type="number"], input[type="time"] {
             background: transparent; border: 2px solid var(--border-color); color: var(--ink-color);
-            font-family: 'VT323'; font-size: 1.2rem; padding: 4px; outline: none;
+            font-family: 'VT323'; font-size: 1.2rem; padding: 4px; outline: none; border-radius: 0;
         }
         #currentTask { flex-grow: 1; text-transform: uppercase; }
-        .mode-switch { display: flex; align-items: center; cursor: pointer; font-size: 1.1rem; margin-left: 10px; }
+        .mode-switch { display: flex; align-items: center; cursor: pointer; font-size: 1.1rem; margin-left: 10px; padding: 5px; }
 
         /* 按钮组 */
         .controls { display: flex; justify-content: center; gap: 10px; }
         button.action-btn {
             background: var(--bg-color); border: 2px solid var(--border-color); color: var(--ink-color);
-            font-family: 'VT323'; font-size: 1.3rem; padding: 5px 20px; cursor: pointer;
+            font-family: 'VT323'; font-size: 1.3rem; padding: 10px 20px; /* 增大按钮方便手机点击 */
+            cursor: pointer;
             box-shadow: 2px 2px 0px rgba(0,0,0,0.2); text-transform: uppercase;
         }
         button.action-btn:active { transform: translate(2px, 2px); box-shadow: none; }
@@ -189,7 +235,7 @@
 
         /* Zen 模式 */
         body.zen-active .hide-in-zen { display: none !important; }
-        body.zen-active .left-widgets { opacity: 0.1; pointer-events: none; }
+        body.zen-active .left-widgets { opacity: 0; pointer-events: none; }
         body.zen-active .container { width: 100%; max-width: none; height: 100vh; justify-content: center; padding: 0; margin: 0; }
         body.zen-active .timer-display { font-size: 25vw; border: none; background: transparent; padding: 0; margin: 0; }
         body.zen-active .pixel-box { border: none; box-shadow: none; background: transparent; }
@@ -200,6 +246,8 @@
             background: var(--invert-bg); border-color: var(--invert-ink); color: var(--invert-ink);
         }
         body.break-mode button { border-color: var(--invert-ink); color: var(--invert-ink); background: var(--invert-bg); }
+        body.break-mode #widget-toggle-btn { background: var(--invert-bg); color: var(--invert-ink); border-color: var(--invert-ink); }
+        
         .disabled-input { opacity: 0.3; pointer-events: none; }
         
         /* 状态提示 */
@@ -217,31 +265,35 @@
 </head>
 <body>
 
-<div id="auto-save-status">AUTO ARCHIVING...</div>
+<div id="auto-save-status">ARCHIVING...</div>
 
 <div class="left-widgets">
-    <div class="widget-box" id="day-countdown-widget" title="Time until End of Day">
-        <div class="widget-title">DAY LEFT</div>
-        <div id="dayLeft" style="font-size:1.4rem; text-align:center;">--:--</div>
-    </div>
+    <button id="widget-toggle-btn" onclick="toggleWidgets()">[ - ] WIDGETS</button>
     
-    <div class="widget-box" id="weather-widget" onclick="fetchWeather()" title="Click to refresh">
-        <div class="widget-title">WEATHER</div>
-        <div id="weatherDisplay" style="text-align:center;">LOADING...</div>
-    </div>
-
-    <div class="widget-box" id="log-widget">
-        <div class="widget-title">
-            <span>TODAY'S LOG</span>
-            <span style="font-size:0.8rem; cursor:pointer;" onclick="exportDataTxt()">[SAVE]</span>
-        </div>
-        <div id="log-list">
-            <div style="text-align:center; color:#888;">NO RECORDS</div>
+    <div class="widget-container" id="widgetContainer">
+        <div class="widget-box" id="day-countdown-widget" title="Time until End of Day">
+            <div class="widget-title">DAY LEFT</div>
+            <div id="dayLeft" style="font-size:1.4rem; text-align:center;">--:--</div>
         </div>
         
-        <div class="auto-save-setting" title="Auto export Log & Image at this time daily">
-            <span>AUTO:</span>
-            <input type="time" id="autoSaveTime" value="00:00" onchange="updateAutoSaveSetting()">
+        <div class="widget-box" id="weather-widget" onclick="fetchWeather()" title="Click to refresh">
+            <div class="widget-title">WEATHER</div>
+            <div id="weatherDisplay" style="text-align:center;">LOADING...</div>
+        </div>
+
+        <div class="widget-box" id="log-widget">
+            <div class="widget-title">
+                <span>TODAY'S LOG</span>
+                <span style="font-size:0.8rem; cursor:pointer;" onclick="exportDataTxt()">[SAVE]</span>
+            </div>
+            <div id="log-list">
+                <div style="text-align:center; color:#888;">NO RECORDS</div>
+            </div>
+            
+            <div class="auto-save-setting" title="Auto export Log & Image at this time daily">
+                <span>AUTO:</span>
+                <input type="time" id="autoSaveTime" value="00:00" onchange="updateAutoSaveSetting()">
+            </div>
         </div>
     </div>
 </div>
@@ -251,8 +303,8 @@
         <div class="toolbar" style="margin:0;">
             <div style="font-weight:bold; font-size:1.4rem;">E_INK_Timer</div>
             <div>
-                <button class="text-btn" onclick="toggleTheme()">[THEME]</button>
-                <button class="text-btn" onclick="toggleZen()">[ZEN]</button>
+                <button class="text-btn" onclick="toggleTheme()" title="Switch Theme">[THEME]</button>
+                <button class="text-btn" onclick="toggleZen()" title="Zen Mode">[ZEN]</button>
             </div>
         </div>
     </div>
@@ -318,7 +370,8 @@
         timeLeft: 25 * 60, isRunning: false, isWorkMode: true, isCountUp: false, isZen: false,
         timerId: null, elapsedTime: 0, initialDuration: 0, startTimeStr: null,
         themes: ['default', 'dark', 'gameboy'], currentThemeIdx: 0,
-        lastAutoSaveDate: localStorage.getItem('inkLastAutoSave') || "" // 防止重复保存
+        lastAutoSaveDate: localStorage.getItem('inkLastAutoSave') || "",
+        widgetsCollapsed: false
     };
 
     /* --- 数据 --- */
@@ -345,106 +398,102 @@
         statsBox: document.getElementById('statsBox'),
         logList: document.getElementById('log-list'),
         autoSaveInput: document.getElementById('autoSaveTime'),
-        statusMsg: document.getElementById('auto-save-status')
+        statusMsg: document.getElementById('auto-save-status'),
+        widgetContainer: document.getElementById('widgetContainer'),
+        widgetToggleBtn: document.getElementById('widget-toggle-btn')
     };
 
     els.endOfDayInput.value = savedEndTime;
     els.autoSaveInput.value = autoSaveTime;
     els.dateDisplay.textContent = new Date().toLocaleDateString();
 
-    /* --- 1. 核心业务逻辑：自动存档 --- */
+    /* --- 0. 组件折叠/展开逻辑 --- */
+    function toggleWidgets() {
+        state.widgetsCollapsed = !state.widgetsCollapsed;
+        updateWidgetState();
+    }
+    
+    function updateWidgetState() {
+        if (state.widgetsCollapsed) {
+            els.widgetContainer.classList.add('collapsed');
+            els.widgetToggleBtn.textContent = "[ + ] WIDGETS";
+        } else {
+            els.widgetContainer.classList.remove('collapsed');
+            els.widgetToggleBtn.textContent = "[ - ] WIDGETS";
+        }
+    }
+    
+    // 初始化：移动端默认折叠，PC端默认展开
+    if (window.innerWidth < 850) {
+        state.widgetsCollapsed = true;
+        updateWidgetState();
+    }
+
+    /* --- 1. 核心业务逻辑：Reset 修复 --- */
+    function resetTimer() {
+        // 1. 强制停止计时器
+        clearInterval(state.timerId);
+        state.isRunning = false;
+        
+        // 2. 清理状态
+        state.startTimeStr = null;
+        state.elapsedTime = 0; // 无论是正计时还是倒计时，这里先归零
+        
+        // 3. UI 恢复
+        els.mainBtn.textContent = "START";
+        els.finishBtn.style.display = "none";
+        
+        // 4. 根据模式重置显示
+        if (state.isCountUp) {
+            updateDisplay(0);
+        } else {
+            // 倒计时模式：重置回设定的分钟数
+            state.timeLeft = els.workMin.value * 60;
+            state.initialDuration = state.timeLeft; // 重要：重置初始时长，否则计算百分比会错
+            updateDisplay(state.timeLeft);
+        }
+    }
+
+    /* --- 2. 自动存档逻辑 --- */
     function updateAutoSaveSetting() {
         autoSaveTime = els.autoSaveInput.value;
         localStorage.setItem('inkAutoSaveTime', autoSaveTime);
     }
-
-    // 每秒检查一次是否需要自动存档
     setInterval(() => {
         const now = new Date();
         const currentTimeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
         const todayStr = now.toLocaleDateString();
-
-        // 触发条件：时间匹配 且 今天还没自动保存过
         if (currentTimeStr === autoSaveTime && state.lastAutoSaveDate !== todayStr) {
             performAutoArchive(now);
         }
     }, 1000);
-
     async function performAutoArchive(nowDate) {
         state.lastAutoSaveDate = nowDate.toLocaleDateString();
         localStorage.setItem('inkLastAutoSave', state.lastAutoSaveDate);
-        
-        showStatus("AUTO ARCHIVING...");
-        
-        // 核心逻辑：如果设置的是 00:00，通常意味着我们要保存的是"昨天"的数据
-        // 如果设置的是 23:59，意味着保存"今天"的数据
-        
+        showStatus("ARCHIVING...");
         let targetDateStr = nowDate.toLocaleDateString();
-        let isMidnightArchiving = false;
-
         if (els.autoSaveInput.value === "00:00") {
-            const yesterday = new Date(nowDate);
-            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterday = new Date(nowDate); yesterday.setDate(yesterday.getDate() - 1);
             targetDateStr = yesterday.toLocaleDateString();
-            isMidnightArchiving = true;
         }
-
-        // 1. 临时切换渲染日期为目标日期
-        renderStats(targetDateStr);
-        renderLogWidget(targetDateStr);
-        els.dateDisplay.textContent = targetDateStr; // UI显示目标日期
-        
-        // 等待UI渲染完成
+        renderStats(targetDateStr); renderLogWidget(targetDateStr); els.dateDisplay.textContent = targetDateStr;
         await new Promise(r => setTimeout(r, 100));
-
-        // 2. 执行导出 (文本)
         exportDataTxt(targetDateStr);
-
-        // 3. 执行导出 (图片)
-        // 注意：浏览器可能会拦截第二个下载，需要用户允许
         await shareStatsImage(targetDateStr);
-        
-        showStatus("ARCHIVE COMPLETE");
-        setTimeout(() => { els.statusMsg.style.display = 'none'; }, 2000);
-
-        // 4. 恢复 UI 到"今天"
-        // 00:00 归档后，恢复到今天自然就是空状态（实现了"自动刷新/清空"）
+        showStatus("COMPLETE"); setTimeout(() => { els.statusMsg.style.display = 'none'; }, 2000);
         const realToday = new Date().toLocaleDateString();
-        renderStats(realToday);
-        renderLogWidget(realToday);
-        els.dateDisplay.textContent = realToday;
+        renderStats(realToday); renderLogWidget(realToday); els.dateDisplay.textContent = realToday;
     }
+    function showStatus(msg) { els.statusMsg.textContent = msg; els.statusMsg.style.display = 'block'; }
 
-    function showStatus(msg) {
-        els.statusMsg.textContent = msg;
-        els.statusMsg.style.display = 'block';
-    }
-
-    /* --- 2. 渲染逻辑 (支持传入特定日期) --- */
+    /* --- 3. 渲染逻辑 --- */
     function renderLogWidget(dateStr = new Date().toLocaleDateString()) {
         const logs = activityLog.map((item, index) => ({...item, originalIndex: index}))
-                                .filter(item => item.date === dateStr)
-                                .reverse();
-
-        if (logs.length === 0) {
-            els.logList.innerHTML = '<div style="text-align:center; color:#888; padding-top:10px;">NO RECORDS</div>';
-            return;
-        }
-
+                                .filter(item => item.date === dateStr).reverse();
+        if (logs.length === 0) { els.logList.innerHTML = '<div style="text-align:center; color:#888; padding-top:10px;">NO RECORDS</div>'; return; }
         let html = '';
         logs.forEach(log => {
-            html += `
-            <div class="log-item">
-                <div class="log-info">
-                    <span>${log.startTime || '--:--'}</span>
-                    <span style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80px;" title="${log.task}">${log.task}</span>
-                    <span>${log.duration}m</span>
-                </div>
-                <div class="log-actions">
-                    <span onclick="editLog(${log.originalIndex})">[E]</span>
-                    <span onclick="deleteLog(${log.originalIndex})" style="color:red">[X]</span>
-                </div>
-            </div>`;
+            html += `<div class="log-item"><div class="log-info"><span>${log.startTime||'--:--'}</span><span style="font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:80px;" title="${log.task}">${log.task}</span><span>${log.duration}m</span></div><div class="log-actions"><span onclick="editLog(${log.originalIndex})">[E]</span><span onclick="deleteLog(${log.originalIndex})" style="color:red">[X]</span></div></div>`;
         });
         els.logList.innerHTML = html;
     }
@@ -454,245 +503,130 @@
         const map = {}; let total = 0;
         logs.forEach(l => { map[l.task] = (map[l.task]||0)+l.duration; total+=l.duration; });
         els.totalTime.textContent = total;
-        
         const ctx = els.pieCanvas.getContext('2d');
-        const width = els.pieCanvas.width;
-        const height = els.pieCanvas.height;
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const radius = width / 2;
-
-        ctx.clearRect(0, 0, width, height);
-
+        const w = els.pieCanvas.width; const h = els.pieCanvas.height;
+        ctx.clearRect(0, 0, w, h);
         if (total === 0) {
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--border-color'); 
-            ctx.globalAlpha = 0.2;
-            ctx.fill();
-            ctx.globalAlpha = 1.0;
-            els.legend.innerHTML = '<div style="text-align:center; color:#888;">NO DATA</div>';
-            return;
+            ctx.beginPath(); ctx.arc(w/2, h/2, w/2, 0, 2*Math.PI); ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--border-color'); 
+            ctx.globalAlpha = 0.2; ctx.fill(); ctx.globalAlpha = 1.0; els.legend.innerHTML = '<div style="text-align:center; color:#888;">NO DATA</div>'; return;
         }
-
-        let startAngle = 0;
-        let html = '';
+        let startAngle = 0; let html = '';
         const inkColor = getComputedStyle(document.body).getPropertyValue('--ink-color').trim();
         const bgColor = getComputedStyle(document.body).getPropertyValue('--bg-color').trim();
         const borderColor = getComputedStyle(document.body).getPropertyValue('--border-color').trim();
         const dynamicShades = [inkColor, '#777', '#999', '#bbb', borderColor];
-
         Object.keys(map).forEach((k, i) => {
-            const pct = map[k]/total;
-            const sliceAngle = pct * 2 * Math.PI;
-            const color = dynamicShades[i % dynamicShades.length];
-
-            ctx.beginPath();
-            ctx.moveTo(centerX, centerY);
-            ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
-            ctx.closePath();
-            ctx.fillStyle = color;
-            ctx.fill();
-
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = bgColor;
-            ctx.stroke();
-
-            html += `
-                <div class="legend-item">
-                    <div style="display:flex;align-items:center;">
-                        <span style="width:10px;height:10px;background:${color};border:1px solid var(--border-color);margin-right:5px;"></span>
-                        <span>${k}</span>
-                    </div>
-                    <span>${map[k]}m</span>
-                </div>`;
+            const pct = map[k]/total; const sliceAngle = pct * 2 * Math.PI; const color = dynamicShades[i % dynamicShades.length];
+            ctx.beginPath(); ctx.moveTo(w/2, h/2); ctx.arc(w/2, h/2, w/2, startAngle, startAngle+sliceAngle); ctx.closePath();
+            ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = bgColor; ctx.stroke();
+            html += `<div class="legend-item"><div style="display:flex;align-items:center;"><span style="width:10px;height:10px;background:${color};border:1px solid var(--border-color);margin-right:5px;"></span><span>${k}</span></div><span>${map[k]}m</span></div>`;
             startAngle += sliceAngle;
         });
         els.legend.innerHTML = html;
     }
 
-    /* --- 3. 导出逻辑 (支持传入特定日期) --- */
+    /* --- 4. 导出与通用逻辑 --- */
     function exportDataTxt(targetDate = null) {
         if(activityLog.length === 0) return;
-        
-        // 如果指定了日期，只导出那天的；否则导出全部或UI逻辑
-        let logsToExport = [...activityLog];
-        let filenameDate = new Date().toISOString().slice(0,10);
-
-        if (targetDate) {
-            logsToExport = logsToExport.filter(l => l.date === targetDate);
-            filenameDate = targetDate.replace(/\//g, '-'); // 格式化文件名
-            if (logsToExport.length === 0) return; // 那天没数据就不导出了
-        }
-
-        let txtContent = "=== E_INK TIMER LOG ===\n\nDATE        | START | TASK                 | DURATION\n---------------------------------------------------\n";
-        logsToExport.reverse().forEach(log => {
-            txtContent += `${log.date.padEnd(11,' ')} | ${(log.startTime||"--:--").padEnd(5,' ')} | ${(log.task).padEnd(20,' ')} | ${(log.duration+"m").padEnd(8,' ')}\n`;
-        });
-        
-        downloadFile(txtContent, `E_INK_Log_${filenameDate}.txt`, 'text/plain');
+        let logs = [...activityLog]; let filenameDate = new Date().toISOString().slice(0,10);
+        if (targetDate) { logs = logs.filter(l => l.date === targetDate); filenameDate = targetDate.replace(/\//g, '-'); if(logs.length===0)return; }
+        let txt = "=== E_INK TIMER LOG ===\n\nDATE        | START | TASK                 | DURATION\n---------------------------------------------------\n";
+        logs.reverse().forEach(log => { txt += `${log.date.padEnd(11,' ')} | ${(log.startTime||"--:--").padEnd(5,' ')} | ${(log.task).padEnd(20,' ')} | ${(log.duration+"m").padEnd(8,' ')}\n`; });
+        const blob = new Blob([txt], {type: 'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `E_INK_Log_${filenameDate}.txt`; a.click();
     }
-
-    // 封装下载函数
-    function downloadFile(content, fileName, mimeType) {
-        const blob = new Blob([content], {type: mimeType});
-        const a = document.createElement('a'); 
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName; 
-        a.click();
-    }
-
-    async function shareStatsImage(filenameSuffix = null) {
-        const target = els.statsBox;
-        const originalBorder = target.style.border;
-        target.style.border = "3px solid var(--ink-color)";
-        
-        // 强制重绘canvas (因为html2canvas有时候抓取不到最新的canvas状态)
-        const currentDateOnUI = els.dateDisplay.textContent;
-        renderStats(currentDateOnUI);
-
+    async function shareStatsImage(suffix = null) {
+        const target = els.statsBox; const border = target.style.border; target.style.border = "3px solid var(--ink-color)";
+        const date = els.dateDisplay.textContent; renderStats(date);
         try {
-            const canvas = await html2canvas(target, {
-                backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color').trim(),
-                scale: 2
-            });
-            target.style.border = originalBorder;
-            
-            const link = document.createElement('a');
-            const dateStr = filenameSuffix ? filenameSuffix.replace(/\//g, '-') : new Date().toISOString().slice(0, 10);
-            link.download = `E_INK_Stats_${dateStr}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
-        } catch(err) {
-            console.error(err);
-        }
+            const canvas = await html2canvas(target, { backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color').trim(), scale: 2 });
+            target.style.border = border; const link = document.createElement('a');
+            const dStr = suffix ? suffix.replace(/\//g, '-') : new Date().toISOString().slice(0, 10);
+            link.download = `E_INK_Stats_${dStr}.png`; link.href = canvas.toDataURL(); link.click();
+        } catch(err) { console.error(err); }
     }
 
-    /* --- 4. 常规逻辑 (计时、编辑、删除等) --- */
+    /* --- 5. 交互逻辑 --- */
     function fetchWeather() {
         els.weatherDisplay.textContent = "LOCATING...";
         if (!navigator.geolocation) { els.weatherDisplay.textContent = "NO GPS"; return; }
         navigator.geolocation.getCurrentPosition((pos) => {
-            const { latitude, longitude } = pos.coords;
-            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`)
-                .then(res => res.json())
-                .then(data => {
-                    const codes = { 0:"CLEAR", 1:"CLEAR", 2:"CLOUDY", 3:"OVERCAST", 45:"FOG", 51:"RAIN", 61:"RAIN", 71:"SNOW", 80:"SHOWER", 95:"STORM" };
-                    const desc = codes[data.current_weather.weathercode] || "UNKNOWN";
-                    els.weatherDisplay.textContent = `${Math.round(data.current_weather.temperature)}° ${desc}`;
-                }).catch(() => els.weatherDisplay.textContent = "ERR:NET");
-        }, () => els.weatherDisplay.textContent = "GPS DENIED");
+            fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
+                .then(res => res.json()).then(data => {
+                    const codes = {0:"CLEAR",1:"CLEAR",2:"CLOUDY",3:"OVERCAST",45:"FOG",51:"RAIN",61:"RAIN",71:"SNOW",95:"STORM"};
+                    els.weatherDisplay.textContent = `${Math.round(data.current_weather.temperature)}° ${codes[data.current_weather.weathercode]||"UNKNOWN"}`;
+                }).catch(()=>els.weatherDisplay.textContent="ERR:NET");
+        }, ()=>els.weatherDisplay.textContent="GPS DENIED");
     }
     setTimeout(fetchWeather, 1000);
 
     function updateDayLeft() {
-        const now = new Date();
-        const [th, tm] = els.endOfDayInput.value.split(':').map(Number);
+        const now = new Date(); const [th, tm] = els.endOfDayInput.value.split(':').map(Number);
         const target = new Date(now); target.setHours(th, tm, 0, 0);
         let diff = target - now;
-        if (diff < 0) {
-            els.dayLeft.textContent = "FREE TIME"; els.dayLeft.style.color = "inherit";
-        } else {
-            const h = Math.floor(diff / 3600000); const m = Math.floor((diff % 3600000) / 60000);
-            if (h === 0) {
-                const s = Math.floor((diff % 60000) / 1000);
-                els.dayLeft.textContent = `${m}m ${s}s`; els.dayLeft.style.color = (m < 30 && m % 2 !== 0) ? 'var(--ink-color)' : 'inherit';
-            } else {
-                els.dayLeft.textContent = `${h}h ${m}m`; els.dayLeft.style.color = 'inherit';
-            }
+        if (diff < 0) { els.dayLeft.textContent = "FREE TIME"; els.dayLeft.style.color = "inherit"; }
+        else {
+            const h = Math.floor(diff/3600000); const m = Math.floor((diff%3600000)/60000);
+            if(h===0) { const s = Math.floor((diff%60000)/1000); els.dayLeft.textContent = `${m}m ${s}s`; els.dayLeft.style.color = (m<30&&m%2!==0)?'var(--ink-color)':'inherit'; }
+            else { els.dayLeft.textContent = `${h}h ${m}m`; els.dayLeft.style.color = 'inherit'; }
         }
     }
     setInterval(updateDayLeft, 1000);
     function saveSettings() { localStorage.setItem('inkEndTime', els.endOfDayInput.value); updateDayLeft(); }
 
-    function deleteLog(index) {
-        if(confirm("Delete this record?")) { activityLog.splice(index, 1); saveDataAndRender(); }
+    function deleteLog(i) { if(confirm("Delete?")) { activityLog.splice(i, 1); saveDataAndRender(); } }
+    function editLog(i) {
+        const l = activityLog[i]; const n = prompt("Task:", l.task); if(n===null)return;
+        const d = prompt("Mins:", l.duration); if(d===null)return;
+        const di = parseInt(d); if(isNaN(di)||di<1)return;
+        activityLog[i].task = n.trim()||"UNNAMED"; activityLog[i].duration = di; saveDataAndRender();
     }
-    function editLog(index) {
-        const log = activityLog[index];
-        const newName = prompt("Edit Task Name:", log.task);
-        if (newName === null) return;
-        const newDurationStr = prompt("Edit Duration (minutes):", log.duration);
-        if (newDurationStr === null) return;
-        const newDuration = parseInt(newDurationStr);
-        if (isNaN(newDuration) || newDuration < 1) { alert("Invalid duration."); return; }
-        activityLog[index].task = newName.trim() || "UNNAMED";
-        activityLog[index].duration = newDuration;
-        saveDataAndRender();
-    }
-    function saveDataAndRender() {
-        localStorage.setItem('inkActivityLog', JSON.stringify(activityLog));
-        renderLogWidget(); renderStats();
-    }
+    function saveDataAndRender() { localStorage.setItem('inkActivityLog', JSON.stringify(activityLog)); renderLogWidget(); renderStats(); }
 
     function toggleCountUpMode() {
-        if(state.isRunning) return;
-        state.isCountUp = !state.isCountUp;
+        if(state.isRunning) return; state.isCountUp = !state.isCountUp;
         els.countUpCheck.textContent = state.isCountUp ? "[x]" : "[ ]";
         if (state.isCountUp) { els.countdownInputs.classList.add('disabled-input'); updateDisplay(0); }
         else { els.countdownInputs.classList.remove('disabled-input'); updateDisplay(els.workMin.value * 60); }
     }
-    function updateDisplay(seconds) {
-        const m = Math.floor(seconds / 60); const s = seconds % 60;
-        els.display.textContent = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-        const icon = state.isCountUp ? '▲' : '▼';
-        document.title = `(${els.display.textContent}) ${state.isRunning ? icon : ''} E_INK_Timer`;
+    function updateDisplay(s) {
+        const m = Math.floor(s/60); const sec = s%60;
+        els.display.textContent = `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+        document.title = `(${els.display.textContent}) ${state.isRunning ? (state.isCountUp?'▲':'▼') : ''} E_INK`;
     }
     function toggleTimer() {
-        if (state.isRunning) {
-            clearInterval(state.timerId); state.isRunning = false; els.mainBtn.textContent = "RESUME"; els.finishBtn.style.display = "none";
-        } else {
-            if (!state.startTimeStr) {
-                const now = new Date();
-                state.startTimeStr = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-            }
-            if (!state.isCountUp && (state.timeLeft === els.workMin.value * 60 || state.timeLeft === 0)) {
-                 state.timeLeft = els.workMin.value * 60; state.initialDuration = state.timeLeft;
-            }
-            state.isRunning = true; els.mainBtn.textContent = "PAUSE"; els.finishBtn.style.display = "inline-block";
+        if (state.isRunning) { clearInterval(state.timerId); state.isRunning = false; els.mainBtn.textContent = "RESUME"; els.finishBtn.style.display="none"; }
+        else {
+            if (!state.startTimeStr) { const n = new Date(); state.startTimeStr = `${n.getHours().toString().padStart(2,'0')}:${n.getMinutes().toString().padStart(2,'0')}`; }
+            if (!state.isCountUp && (state.timeLeft === els.workMin.value*60 || state.timeLeft === 0)) { state.timeLeft = els.workMin.value*60; state.initialDuration = state.timeLeft; }
+            state.isRunning = true; els.mainBtn.textContent = "PAUSE"; els.finishBtn.style.display="inline-block";
             state.timerId = setInterval(() => {
-                if (state.isCountUp) { state.elapsedTime++; updateDisplay(state.elapsedTime); }
-                else {
-                    if (state.timeLeft > 0) { state.timeLeft--; updateDisplay(state.timeLeft); }
-                    else { finishTimer(true); }
-                }
+                if(state.isCountUp) { state.elapsedTime++; updateDisplay(state.elapsedTime); }
+                else { if(state.timeLeft>0) { state.timeLeft--; updateDisplay(state.timeLeft); } else finishTimer(true); }
             }, 1000);
         }
     }
     function finishTimer(natural) {
-        clearInterval(state.timerId); state.isRunning = false; els.mainBtn.textContent = "START"; els.finishBtn.style.display = "none";
-        let duration = state.isCountUp ? Math.ceil(state.elapsedTime/60) : (natural ? Math.ceil(state.initialDuration/60) : Math.ceil((state.initialDuration - state.timeLeft)/60));
-        if(duration < 1) duration = 1;
-        if(natural) { beep(); alert("Time's Up!"); }
-        activityLog.push({ date: new Date().toLocaleDateString(), startTime: state.startTimeStr, task: els.taskInput.value.trim() || "UNNAMED", duration: duration });
-        state.startTimeStr = null; state.elapsedTime = 0;
-        if (!state.isCountUp) { state.timeLeft = els.workMin.value * 60; updateDisplay(state.timeLeft); } else { updateDisplay(0); }
+        clearInterval(state.timerId); state.isRunning = false; els.mainBtn.textContent = "START"; els.finishBtn.style.display="none";
+        let d = state.isCountUp ? Math.ceil(state.elapsedTime/60) : (natural ? Math.ceil(state.initialDuration/60) : Math.ceil((state.initialDuration-state.timeLeft)/60));
+        if(d<1)d=1; if(natural){ beep(); alert("Time's Up!"); }
+        activityLog.push({ date: new Date().toLocaleDateString(), startTime: state.startTimeStr, task: els.taskInput.value.trim()||"UNNAMED", duration: d });
+        state.startTimeStr=null; state.elapsedTime=0;
+        if(!state.isCountUp) { state.timeLeft = els.workMin.value*60; updateDisplay(state.timeLeft); } else updateDisplay(0);
         saveDataAndRender();
     }
     function finishEarly() { finishTimer(false); }
     function beep() {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator(); const g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.type = 'square'; osc.frequency.value = 800;
-        g.gain.setValueAtTime(0.1, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.5);
-        osc.start(); osc.stop(ctx.currentTime+0.5);
+        const c = new (window.AudioContext||window.webkitAudioContext)(); const o = c.createOscillator(); const g = c.createGain();
+        o.connect(g); g.connect(c.destination); o.type='square'; o.frequency.value=800;
+        g.gain.setValueAtTime(0.1,c.currentTime); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.5); o.start(); o.stop(c.currentTime+0.5);
     }
-    function toggleTheme() {
-        state.currentThemeIdx = (state.currentThemeIdx + 1) % state.themes.length;
-        document.documentElement.setAttribute('data-theme', state.themes[state.currentThemeIdx]);
-        renderStats();
-    }
-    function toggleZen() {
-        state.isZen = !state.isZen;
-        document.body.classList.toggle('zen-active', state.isZen);
-    }
-    document.addEventListener('keydown', e => { if(state.isZen && e.key === 'Enter') toggleZen(); });
+    function toggleTheme() { state.currentThemeIdx=(state.currentThemeIdx+1)%state.themes.length; document.documentElement.setAttribute('data-theme', state.themes[state.currentThemeIdx]); renderStats(); }
+    function toggleZen() { state.isZen=!state.isZen; document.body.classList.toggle('zen-active', state.isZen); }
+    document.addEventListener('keydown', e=>{ if(state.isZen && e.key==='Enter') toggleZen(); });
 
     /* --- 初始化 --- */
-    renderLogWidget();
-    renderStats();
-    els.workMin.addEventListener('change', () => { if (!state.isRunning && !state.isCountUp) { state.timeLeft = els.workMin.value*60; updateDisplay(state.timeLeft); }});
+    renderLogWidget(); renderStats();
+    els.workMin.addEventListener('change', ()=>{ if(!state.isRunning && !state.isCountUp) { state.timeLeft = els.workMin.value*60; updateDisplay(state.timeLeft); }});
 </script>
 </body>
 </html>
